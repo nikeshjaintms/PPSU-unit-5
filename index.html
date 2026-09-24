@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>ML Prediction Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  body { font-family: Arial, sans-serif; max-width: 700px; margin: 40px auto; }
+  h1 { font-size: 22px; }
+  #summary { font-size: 18px; margin: 16px 0; }
+  table { border-collapse: collapse; width: 100%; margin-bottom: 24px; }
+  th, td { border: 1px solid #ccc; padding: 8px 12px; text-align: left; }
+  th { background: #f2f2f2; }
+  button { cursor: pointer; }
+  #refreshBtn { margin-bottom: 20px; padding: 6px 14px; }
+</style>
+</head>
+<body>
+
+<h1>📊 Spam Prediction Dashboard</h1>
+<p>Live example of Unit 5: fetching model predictions from an API, then rendering them as text, a dynamic table, and a Chart.js bar chart.</p>
+
+<button id="refreshBtn" onclick="loadDashboard()">🔄 Refresh Predictions</button>
+
+<h2 id="summary"></h2>
+
+<table id="resultsTable">
+  <tr><th>Item</th><th>Prediction</th><th>Confidence</th><th>Action</th></tr>
+</table>
+
+<canvas id="resultsChart" width="400" height="200"></canvas>
+
+<script>
+const API_URL = "http://127.0.0.1:5000/api/predictions"; // Flask backend (run app.py first)
+let resultsChart = null; // keep a reference so we can destroy/redraw on refresh
+
+async function loadDashboard() {
+  try {
+    const response = await fetch(API_URL);
+    const results = await response.json();
+
+    // 1. Summary text
+    const spamCount = results.filter(r => r.label === "Spam").length;
+    document.getElementById("summary").textContent =
+      `${spamCount} of ${results.length} messages flagged as Spam`;
+
+    // 2. Dynamic table (rebuilt fresh each refresh)
+    const table = document.getElementById("resultsTable");
+    table.querySelectorAll("tr:not(:first-child)").forEach(row => row.remove());
+    results.forEach((r) => {
+      const row = table.insertRow();
+      row.insertCell().textContent = r.item;
+      row.insertCell().textContent = r.label;
+      row.insertCell().textContent = (r.confidence * 100).toFixed(1) + "%";
+      const actionCell = row.insertCell();
+      const deleteBtn = document.createElement("button");
+      deleteBtn.textContent = "Remove";
+      deleteBtn.onclick = () => row.remove();
+      actionCell.appendChild(deleteBtn);
+    });
+
+    // 3. Chart (destroy old instance before redrawing)
+    if (resultsChart) resultsChart.destroy();
+    resultsChart = new Chart(document.getElementById("resultsChart"), {
+      type: "bar",
+      data: {
+        labels: results.map(r => r.item),
+        datasets: [{
+          label: "Confidence (%)",
+          data: results.map(r => r.confidence * 100),
+          backgroundColor: results.map(r => r.label === "Spam" ? "crimson" : "seagreen")
+        }]
+      }
+    });
+  } catch (error) {
+    document.getElementById("summary").textContent =
+      "Could not load predictions. Is the Flask API running on port 5000?";
+  }
+}
+
+loadDashboard();
+</script>
+</body>
+</html>
